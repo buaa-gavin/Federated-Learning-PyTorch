@@ -31,7 +31,7 @@ class LocalUpdate(object):
             dataset, list(idxs))
         self.device = 'cuda' if args.gpu else 'cpu'
         # Default criterion set to NLL loss function
-        self.criterion = nn.NLLLoss().to(self.device)
+        self.criterion = nn.NLLLoss().to(self.device)  # 求交叉熵
 
     def train_val_test(self, dataset, idxs):
         """
@@ -42,13 +42,16 @@ class LocalUpdate(object):
         idxs_train = idxs[:int(0.8*len(idxs))]
         idxs_val = idxs[int(0.8*len(idxs)):int(0.9*len(idxs))]
         idxs_test = idxs[int(0.9*len(idxs)):]
+        # print('--', len(idxs), len(idxs_train), len(idxs_val), len(idxs_test), '--')
+        # 91 72 9 10
 
         trainloader = DataLoader(DatasetSplit(dataset, idxs_train),
                                  batch_size=self.args.local_bs, shuffle=True)
         validloader = DataLoader(DatasetSplit(dataset, idxs_val),
-                                 batch_size=int(len(idxs_val)/10), shuffle=False)
+                                 batch_size=int(len(idxs_val)/2), shuffle=False)
         testloader = DataLoader(DatasetSplit(dataset, idxs_test),
-                                batch_size=int(len(idxs_test)/10), shuffle=False)
+                                batch_size=int(len(idxs_test)/2), shuffle=False)
+        # 从除以10到除以2，因为数据量太小了所以调小batch_size相关除数
         return trainloader, validloader, testloader
 
     def update_weights(self, model, global_round):
@@ -67,10 +70,19 @@ class LocalUpdate(object):
         for iter in range(self.args.local_ep):
             batch_loss = []
             for batch_idx, (images, labels) in enumerate(self.trainloader):
+                # print(batch_idx)
+                # print(images)
+                # print(labels)
                 images, labels = images.to(self.device), labels.to(self.device)
 
                 model.zero_grad()
                 log_probs = model(images)
+                # print(labels[0], labels[1])
+                labels = torch.squeeze(labels, -1)  # 从二维压缩成一维
+                labels = labels.long()  # NLLLoss输入的要是long类型
+                # print(log_probs)
+                # print('---')
+                # print(labels)
                 loss = self.criterion(log_probs, labels)
                 loss.backward()
                 optimizer.step()
@@ -95,6 +107,8 @@ class LocalUpdate(object):
 
         for batch_idx, (images, labels) in enumerate(self.testloader):
             images, labels = images.to(self.device), labels.to(self.device)
+            labels = torch.squeeze(labels, -1)
+            labels = labels.long()
 
             # Inference
             outputs = model(images)
@@ -125,6 +139,8 @@ def test_inference(args, model, test_dataset):
 
     for batch_idx, (images, labels) in enumerate(testloader):
         images, labels = images.to(device), labels.to(device)
+        labels = torch.squeeze(labels, -1)
+        labels = labels.long()
 
         # Inference
         outputs = model(images)

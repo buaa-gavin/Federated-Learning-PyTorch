@@ -18,8 +18,8 @@ def mnist_iid(dataset, num_users):
     dict_users, all_idxs = {}, [i for i in range(len(dataset))]
     for i in range(num_users):
         dict_users[i] = set(np.random.choice(all_idxs, num_items,
-                                             replace=False))
-        all_idxs = list(set(all_idxs) - dict_users[i])
+                                             replace=False))  # 从总集中随机选
+        all_idxs = list(set(all_idxs) - dict_users[i])  # 总集去掉已经选好的编号
     return dict_users
 
 
@@ -30,24 +30,32 @@ def mnist_noniid(dataset, num_users):
     :param num_users:
     :return:
     """
-    # 60,000 training imgs -->  200 imgs/shard X 300 shards
+    # 60,000 training imgs -->  300 imgs/shard X 200 shards
     num_shards, num_imgs = 200, 300
     idx_shard = [i for i in range(num_shards)]
     dict_users = {i: np.array([]) for i in range(num_users)}
     idxs = np.arange(num_shards*num_imgs)
-    labels = dataset.train_labels.numpy()
+    labels = dataset.train_labels.numpy()  # 60000个标签
 
     # sort labels
     idxs_labels = np.vstack((idxs, labels))
-    idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
+    idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]  # argsort函数返回的是数组值从小到大的索引值,即按类排序
+    # 将值按label排序，同时序号idxs跟着label动
     idxs = idxs_labels[0, :]
+
+    '''
+    non_iid实现方法：
+    把图片按照标签（mnist是0-9的数字）排序
+    从左到右每300张图算一个shard（一个块），一个shard就一类或者两类的图
+    每个client给两个shard，这样他最多只有四类，所以就noniid了（上面iid的情况是随机取然后10类都有）
+    '''
 
     # divide and assign 2 shards/client
     for i in range(num_users):
-        rand_set = set(np.random.choice(idx_shard, 2, replace=False))
+        rand_set = set(np.random.choice(idx_shard, 2, replace=False))  # 选两个shard
         idx_shard = list(set(idx_shard) - rand_set)
         for rand in rand_set:
-            dict_users[i] = np.concatenate(
+            dict_users[i] = np.concatenate(  # np.concatenate拼接成一维数组
                 (dict_users[i], idxs[rand*num_imgs:(rand+1)*num_imgs]), axis=0)
     return dict_users
 
@@ -184,6 +192,22 @@ def cifar_noniid(dataset, num_users):
         for rand in rand_set:
             dict_users[i] = np.concatenate(
                 (dict_users[i], idxs[rand*num_imgs:(rand+1)*num_imgs]), axis=0)
+    return dict_users
+
+def medmnist_iid(dataset, num_users):
+    """
+    Sample I.I.D. client data from medMNIST dataset
+    :param dataset:
+    :param num_users:
+    :return: dict of image index
+    """
+    num_items = int(len(dataset)/num_users)
+    print(num_items, len(dataset), num_users)
+    dict_users, all_idxs = {}, [i for i in range(len(dataset))]
+    for i in range(num_users):
+        dict_users[i] = set(np.random.choice(all_idxs, num_items,
+                                             replace=False))  # 从总集中随机选
+        all_idxs = list(set(all_idxs) - dict_users[i])  # 总集去掉已经选好的编号
     return dict_users
 
 

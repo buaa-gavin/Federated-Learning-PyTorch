@@ -8,6 +8,9 @@ from torchvision import datasets, transforms
 from sampling import mnist_iid, mnist_noniid, mnist_noniid_unequal
 from sampling import cifar_iid, cifar_noniid
 
+from medmnist.dataset import BreastMNIST
+from sampling import medmnist_iid
+
 
 def get_dataset(args):
     """ Returns train and test datasets and a user group which is a dict where
@@ -40,7 +43,33 @@ def get_dataset(args):
                 # Chose euqal splits for every user
                 user_groups = cifar_noniid(train_dataset, args.num_users)
 
+    elif args.dataset == 'medmnist':
+        train_transform = transforms.Compose(
+            [transforms.ToTensor(),
+             transforms.Normalize(mean=[.5], std=[.5])])
+
+        test_transform = transforms.Compose(
+            [transforms.ToTensor(),
+             transforms.Normalize(mean=[.5], std=[.5])])
+        input_root = args.input_root
+
+        train_dataset = BreastMNIST(root=input_root,
+                                    split='train',
+                                    transform=train_transform,
+                                    download=True)
+
+        test_dataset = BreastMNIST(root=input_root,
+                                   split='test',
+                                   transform=test_transform,
+                                   download=True)
+
+        user_groups = medmnist_iid(train_dataset, args.num_users)
+        print('--------------------------------')
+        print(train_dataset, test_dataset, user_groups)
+        print('--------------------------------')
+
     elif args.dataset == 'mnist' or 'fmnist':
+        print('<<<<>>>>>')
         if args.dataset == 'mnist':
             data_dir = '../data/mnist/'
         else:
@@ -68,6 +97,7 @@ def get_dataset(args):
             else:
                 # Chose euqal splits for every user
                 user_groups = mnist_noniid(train_dataset, args.num_users)
+
 
     return train_dataset, test_dataset, user_groups
 
